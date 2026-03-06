@@ -7,17 +7,27 @@ showTransaction :: Transaction -> String
 showTransaction (Deposit x) = "Deposit " ++ show x
 showTransaction (Withdraw x) = "Withdraw " ++ show x
 
-applyTransaction :: Int -> Transaction -> Int
-applyTransaction balance (Deposit x) = balance + x
-applyTransaction balance (Withdraw x) = balance - x
+-- Safe withdrawal: returns Nothing if insufficient funds
+applyTransaction :: Int -> Transaction -> Maybe Int
+applyTransaction balance (Deposit x) = Just (balance + x)
+applyTransaction balance (Withdraw x)
+  | x <= balance = Just (balance - x)
+  | otherwise = Nothing  -- Not enough money!
 
-calculateBalance :: [Transaction] -> Int
-calculateBalance = foldl applyTransaction 0
+calculateBalance :: [Transaction] -> Maybe Int
+calculateBalance = go 0
+  where
+    go balance [] = Just balance
+    go balance (t:ts) = 
+      case applyTransaction balance t of
+        Nothing -> Nothing
+        Just newBalance -> go newBalance ts
 
 transactions :: [Transaction]
 transactions =
   [ Deposit 100
   , Withdraw 30
+  , Withdraw 80
   , Deposit 50
   , Withdraw 10
   ]
@@ -26,7 +36,8 @@ main :: IO ()
 main = do
   putStrLn "LedgerLite"
   putStrLn "=========="
-  putStrLn "Transactions:"
   mapM_ (putStrLn . showTransaction) transactions
   putStrLn "----------"
-  putStrLn ("Current balance: " ++ show (calculateBalance transactions))
+  case calculateBalance transactions of
+    Just balance -> putStrLn ("Balance: " ++ show balance)
+    Nothing -> putStrLn "Error: Not enough money!"
